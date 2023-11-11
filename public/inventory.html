@@ -161,14 +161,15 @@ tr:nth-child(even) {
         function displayInventory(data) {
             inventoryTable.querySelector('tbody').innerHTML = '';
             data.forEach(item => {
+                // Inside the displayInventory function
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${item.sport_name}</td>
                     <td>${item.item_name}</td>
                     <td>${item.quantity}</td>
                     <td>
-                        <button class="delete-item" data-id="${item.id}">Delete</button>
-                        <button class="edit-item" data-id="${item.id}">Edit</button>
+                        <button class="delete-item" data-item-name="${item.item_name}">Delete</button>
+                        <button class="edit-item" data-item-name="${item.item_name}">Edit</button>
                     </td>
                 `;
                 inventoryTable.querySelector('tbody').appendChild(row);
@@ -201,34 +202,46 @@ tr:nth-child(even) {
         });
 
         // Event listener for deleting an item
-        inventoryTable.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('delete-item')) {
-                const itemId = e.target.getAttribute('data-id');
-                await fetch(`/api/items/${itemId}`, {
-                    method: 'DELETE'
-                });
+inventoryTable.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('delete-item')) {
+        const itemName = e.target.getAttribute('data-item-name');
+        try {
+            const response = await fetch(`/api/items/${itemName}`, {
+                method: 'DELETE',
+            });
+            if (response.ok) {
                 fetchAndDisplayInventory();
+            } else {
+                console.error('Deletion unsuccessful');
             }
-        });
-
-        // Event listener for editing an item
-        inventoryTable.addEventListener('click', (e) => {
-            if (e.target.classList.contains('edit-item')) {
-                const itemId = e.target.getAttribute('data-id');
-                const newQuantity = prompt('Enter the new quantity:');
-                if (newQuantity !== null) {
-                    fetch(`/api/items/${itemId}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ quantity: newQuantity })
-                    }).then(() => {
-                        fetchAndDisplayInventory();
-                    });
+        } catch (error) {
+            console.error('Error deleting item:', error);
+        }
+    }
+});
+// Inside the event listener for editing an item
+inventoryTable.addEventListener('click', (e) => {
+    if (e.target.classList.contains('edit-item')) {
+        const itemName = e.target.getAttribute('data-item-name');
+        const newQuantity = prompt('Enter the new quantity:');
+        if (newQuantity !== null) {
+            fetch(`/api/items/${itemName}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ quantity: newQuantity })
+            }).then((response) => {
+                if (response.ok) {
+                    fetchAndDisplayInventory();
+                } else {
+                    console.error('Update unsuccessful:', response.statusText);
                 }
-            }
-        });
+            });
+        }
+    }
+});
+
 
         // Initial fetch and display of inventory data
         fetchAndDisplayInventory();

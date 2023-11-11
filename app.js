@@ -9,6 +9,7 @@ const MongoClient = require('mongodb').MongoClient;
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
+const session = require('express-session');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));
@@ -18,7 +19,6 @@ app.use(express.json());
 
 app.set('view engine', 'ejs');
 
-const session = require('express-session');
 app.use(session({
     secret: 'your-secret-key',
     resave: false,
@@ -26,13 +26,6 @@ app.use(session({
 }));
 
 
-function isAuthorized(req, res, next) {
-    if (req.session.isLoggedIn) {
-        next();
-    } else {
-        res.status(401).send('You must log in to access this feature');
-    }
-}
 
 const url = 'mongodb://127.0.0.1:27017/details'; // Replace with your MongoDB connection URL
 const secretKey = 'eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTY5ODMyMzAwNCwiaWF0IjoxNjk4MzIzMDA0fQ.oliXDweuyqg8qCkhqq6PUJkFE5lUKovEGQM0m137jmU'; // Replace with your own secret key
@@ -53,6 +46,137 @@ db.on('connected',()=>{
 db.on('error',(err)=>{
     console.error('Error Connecting to MongoDB');
 })
+function isAuthorized(req, res, next) {
+    // Check if the user is logged in (you might have a session variable for this)
+    res.locals.isLoggedIn = req.session.isLoggedIn || false;
+
+    if (res.locals.isLoggedIn) {
+        // The user is authorized, so continue to the next middleware or route handler
+        next();
+    } else {
+        // The user is not authorized, so you can redirect them to a login page or send an error message
+        // Alternatively, you can send an error response
+        res.status(401).send('This feature is not accessible for Guests');
+    }
+}
+
+
+
+// User Registration Route
+app.post('/signup', async (req, res) => {
+    const { username, password, email } = req.body;
+  
+    // Basic validation
+    if (!username || !password || !email) {
+      return res.status(400).send('All fields are required');
+    }
+  
+    try {
+      // Hash the user's password before storing it
+      const saltRounds = 10; // You can adjust the number of salt rounds
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+  
+      // Create and save the consumer to the database with the hashed password
+      const newConsumer = new Consumer({
+        username,
+        password: hashedPassword,
+        email
+      });
+  
+      await newConsumer.save();
+  
+      res.status(201).send('Consumer Registration Successful');
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('Error while Registering');
+    }
+  });
+
+
+
+
+
+// User Registration Route
+
+// User Login Route
+app.post('/login', (req, res) => {
+    const username = req.body.username;
+    const password = req.body.password;
+
+    // Query the database to find the user
+    db.collection('consumers').findOne({ username: username }, (err, user) => {
+        if (err) {
+            res.status(500).send('Error during login.');
+        } else if (!user) {
+            res.status(401).send('User not found.');
+        } else if (!bcrypt.compareSync(password, user.password)) {
+            res.status(401).send('Incorrect password.');
+        } else {
+            // Generate a JWT and send it as a response for user authentication
+            const token = jwt.sign({ username: user.username }, secretKey, { expiresIn: '1h' });
+
+            req.session = req.session || {};
+
+            // Set session data to mark the user as logged in
+            req.session.isLoggedIn = true;
+            
+            // Send the token as a response or redirect as needed
+            // For example, you can redirect to the home page
+            res.redirect('/');
+        }
+    });
+});
+  
+  app.post('/api/logout', (req, res) => {
+    // Clear the session or perform any other logout actions
+    req.session.destroy(err => {
+        if (err) {
+            console.error('Error during logout:', err);
+            res.status(500).json({ error: 'Error during logout' });
+        } else {
+            // Send a JSON response indicating successful logout
+            res.json({ success: true });
+        }
+    });
+});
+
+
+  app.get('/api/check-login-status', (req, res) => {
+    // Check if the user is logged in and retrieve relevant data
+    const isLoggedIn = req.session.isLoggedIn;
+    // Return the login status as JSON
+    res.json({ isLoggedIn });
+});
+// User Registration Route
+
+// User Login Route
+app.post('/login', (req, res) => {
+    const username = req.body.username;
+    const password = req.body.password;
+
+    // Query the database to find the user
+    db.collection('consumers').findOne({ username: username }, (err, user) => {
+        if (err) {
+            res.status(500).send('Error during login.');
+        } else if (!user) {
+            res.status(401).send('User not found.');
+        } else if (!bcrypt.compareSync(password, user.password)) {
+            res.status(401).send('Incorrect password.');
+        } else {
+            // Generate a JWT and send it as a response for user authentication
+            const token = jwt.sign({ username: user.username }, secretKey, { expiresIn: '1h' });
+
+            req.session = req.session || {};
+            // Set session data to mark the user as logged in
+            req.session.isLoggedIn = true;
+            
+            // Send the token as a response or redirect as needed
+            // For example, you can redirect to the home page
+            res.redirect('/');
+        }
+    });
+});
+
 
 // Define a schema for inventory items
 const inventoryItemSchema = new mongoose.Schema({
@@ -64,9 +188,10 @@ const inventoryItemSchema = new mongoose.Schema({
 // Define a model for inventory items
 const InventoryItem = mongoose.model('inventory', inventoryItemSchema);
 
-app.get('/inventory',isAuthorized, (req,res) => {
-    res.sendFile(path.join(__dirname+'/public/inventory.html'));
-})
+app.get('/inventory', isAuthorized, (req, res) => {
+    res.sendFile(path.join(__dirname + '/public/inventory.html'));
+});
+
 
 app.get('/api/inventory', async (req, res) => {
     try {
@@ -109,13 +234,11 @@ app.delete('/api/items/:itemName', async (req, res) => {
     }
 
     try {
-        const result = await InventoryItem.deleteOne({ item_name: itemName });
+        const result = await db.collection('inventory').deleteOne({ item_name: itemName });
 
         if (result.deletedCount === 0) {
             res.status(404).json({ error: 'Item not found' });
-            res.send("Deletion Unsuccessful");
         } else {
-            res.send("Deletion Successful");
             res.status(204).send();
         }
     } catch (error) {
@@ -134,9 +257,9 @@ app.put('/api/items/:itemName', async (req, res) => {
     }
 
     try {
-        const result = await InventoryItem.updateOne({ item_name: itemName }, { quantity });
+        const result = await db.collection('inventory').updateOne({ item_name: itemName }, { $set: { quantity: quantity } });
 
-        if (result.nModified === 0) {
+        if (result.modifiedCount === 0) {
             res.status(404).json({ error: 'Item not found' });
         } else {
             res.status(204).send();
@@ -152,18 +275,72 @@ app.get('/', (req,res)=>{
     res.sendFile(path.join(__dirname+'/public/homepage.html'));
 })
 
+// Example: Handle search requests for partial matches in sport_name or item_name
+// Add this route to handle search requests
+// Add this route to handle search requests
+// Use app.get for retrieving search results
+app.get('/api/search', async (req, res) => {
+    const searchTerm = req.query.searchTerm;
+
+    try {
+        
+        const results = await db.collection('inventory').find({
+            $or: [
+                { sport_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } },
+                { item_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } }
+            ]
+        }).sort({ sport_name: 1 }).toArray();
+        
+        results.sort((a, b) => {
+            const containsSearchTermA = a.sport_name.toLowerCase().includes(searchTerm.toLowerCase());
+            const containsSearchTermB = b.sport_name.toLowerCase().includes(searchTerm.toLowerCase());
+        
+            // If sport_name contains the search term, it comes first in the sorted order
+            return containsSearchTermB - containsSearchTermA;
+        });
+
+        console.log('Search Term:', searchTerm);
+
+        console.log('Search Results:', results);
+
+        res.json(results);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Use app.post for rendering searchResults.ejs
 app.post('/search', async (req, res) => {
     const searchTerm = req.body.searchTerm;
+
     try {
-      const results = await InventoryItem.find({ sport_name: { $regex: searchTerm, $options: 'i' } });
-      console.log(results); // Add this line to log the results
-      res.render('results', { results });
+        
+        
+        const results = await db.collection('inventory').find({
+            $or: [
+                { sport_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } },
+                { item_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } }
+            ]
+        }).sort({ sport_name: 1 }).toArray();
+        
+        console.log('Search Term:', searchTerm);
+        console.log('Search Results:', results);
+
+        // Render the searchResults.ejs template with the results
+        res.render('searchResults', { results });
     } catch (error) {
-      console.error(error);
+        console.error(error);
+        res.status(500).send('Internal server error');
     }
-  });
-  
-  
+});
+
+
+
+
+// ...
+
+
 
 app.get('/new_user_register', (req,res)=>{
     res.sendFile(path.join(__dirname+'/public/new_user_registration.html'));
@@ -190,62 +367,7 @@ const ConsumerSchema = new mongoose.Schema({
 // Define a model for inventory items
 const Consumer = mongoose.model('consumer', ConsumerSchema);
 
-
 // User Registration Route
-app.post('/signup', async (req, res) => {
-    const { username, password, email } = req.body;
-  
-    // Basic validation
-    if (!username || !password || !email) {
-      return res.status(400).send('All fields are required');
-    }
-  
-    try {
-      // Hash the user's password before storing it
-      const saltRounds = 10; // You can adjust the number of salt rounds
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-  
-      // Create and save the consumer to the database with the hashed password
-      const newConsumer = new Consumer({
-        username,
-        password: hashedPassword,
-        email
-      });
-  
-      await newConsumer.save();
-  
-      res.status(201).send('Consumer Registration Successful');
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Error while Registering');
-    }
-  });
-
-
-// User Registration Route
-
-
-        // User Login Route
-        app.post('/login', (req, res) => {
-            const username = req.body.username;
-            const password = req.body.password;
-
-            // Query the database to find the user
-            db.collection('consumers').findOne({ username: username }, (err, user) => {
-                if (err) {
-                    res.status(500).send('Error during login.');
-                } else if (!user) {
-                    res.status(401).send('User not found.');
-                } else if (!bcrypt.compareSync(password, user.password)) {
-                    res.status(401).send('Incorrect password.');
-                } else {
-                    // Generate a JWT and send it as a response for user authentication
-                    const token = jwt.sign({ username: user.username }, secretKey, { expiresIn: '1h' });
-                    req.session.isLoggedIn = true;
-                    res.redirect('/');
-                }
-            });
-        });
 
 
         const productSchema = new mongoose.Schema({
@@ -264,9 +386,7 @@ app.post('/signup', async (req, res) => {
           
           const Item = mongoose.model('Item', ItemSchema);
           
-          app.use(express.json());
           app.use(express.urlencoded({ extended: false }));
-          app.use(express.static('public'));
           
           app.get('/api/items', async (req, res) => {
             try {
