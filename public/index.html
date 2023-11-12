@@ -238,40 +238,7 @@ div button:hover{
             }
         });
         
-        async function searchProducts() {
-            const query = document.getElementById('productQuery').value;
-
-            if (!query) {
-                alert('Please enter a search query.');
-                return;
-            }
-
-            const response = await fetch(`/search?query=${query}`);
-            const data = await response.json();
-
-            displayResults(data);
-        }
-
-        function displayResults(results) {
-          const resultsContainer = document.getElementById('results-container');
-
-            resultsContainer.innerHTML = '';
-
-            if (results.length === 0) {
-                resultsContainer.innerHTML = '<p>No results found.</p>';
-            } else {
-                results.forEach(product => {
-                    const productElement = document.createElement('div');
-                    productElement.innerHTML = `
-                        <h3>${product.name}</h3>
-                        <p><strong>Price:</strong> ${product.price}</p>
-                        <p><strong>Description:</strong> ${product.description}</p>
-                    `;
-                    resultsContainer.appendChild(productElement);
-                });
-            }
-        }
-
+        
         function toggleAuthButton(isAuthenticated) {
             const authButtonsContainer = document.getElementById('authButtons');
           
@@ -286,10 +253,10 @@ div button:hover{
                 <a href="./home.html"><button>Login</button></a>
               `;
             }
-          }
+        }
           
           // Function to handle logout
-          function logout() {
+        function logout() {
             // Perform logout actions, e.g., call a server endpoint to clear the session
             fetch('/api/logout', {
               method: 'POST',
@@ -302,20 +269,19 @@ div button:hover{
             .catch(error => {
               console.error('Error during logout:', error);
             });
-          }
+        }
           
-          // Call the function on page load to set the initial state
-          fetch('/api/check-login-status')
-              .then(response => response.json())
-              .then(data => {
-                  // Check the data to determine the user's login status
-                  const isAuthenticated = data.isLoggedIn;
-                  toggleAuthButton(isAuthenticated);
-              })
-              .catch(error => {
-                  console.error('Error checking login status:', error);
-              });
-
+        // Call the function on page load to set the initial state
+        fetch('/api/check-login-status')
+            .then(response => response.json())
+            .then(data => {
+                // Check the data to determine the user's login status
+                const isAuthenticated = data.isLoggedIn;
+                toggleAuthButton(isAuthenticated);
+            })
+            .catch(error => {
+                console.error('Error checking login status:', error);
+        });
            
 // Add this function to handle search on the server side
 async function performSearch() {
@@ -349,16 +315,13 @@ async function performSearch() {
     }
 }
 
-// Add this event listener to call performSearch when the form is submitted
-const searchForm = document.getElementById('searchForm');
-searchForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    performSearch();
-});
-
-        
-        const searchResultsContainer = document.getElementById('searchResultsContainer');
-
+    // Add this event listener to call performSearch when the form is submitted
+    const searchResultsContainer = document.getElementById('searchResultsContainer');
+    const searchForm = document.getElementById('searchForm');
+    searchForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        performSearch();
+    });
     
     
     </script>
