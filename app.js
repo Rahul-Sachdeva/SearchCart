@@ -10,25 +10,42 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const session = require('express-session');
+const multer = require('multer');
+const upload = multer();
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: true}));
 
 app.use(express.static('public'));
 app.use(express.json());
 
 app.set('view engine', 'ejs');
 
+const url = 'mongodb://127.0.0.1:27017/details'; // Replace with your MongoDB connection URL
+const secretKey = 'eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTY5ODMyMzAwNCwiaWF0IjoxNjk4MzIzMDA0fQ.oliXDweuyqg8qCkhqq6PUJkFE5lUKovEGQM0m137jmU'; // Replace with your own secret key
+
+app.use(bodyParser.urlencoded({extended: true}));
+
 app.use(session({
-    secret: 'your-secret-key',
+    secret: secretKey,
     resave: false,
     saveUninitialized: true
 }));
 
 
+function isAuthenticated(req, res, next) {
+    // Check if the user is logged in and the session indicates they are authorized
+    
+    const isLoggedIn = req.session.isLoggedIn || false;
 
-const url = 'mongodb://127.0.0.1:27017/details'; // Replace with your MongoDB connection URL
-const secretKey = 'eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTY5ODMyMzAwNCwiaWF0IjoxNjk4MzIzMDA0fQ.oliXDweuyqg8qCkhqq6PUJkFE5lUKovEGQM0m137jmU'; // Replace with your own secret key
+    if (isLoggedIn) {
+        // The user is authorized, so continue to the next middleware or route handler
+        next();
+    } else {
+        // The user is not authorized, so you can redirect them to a login page or send an error message
+        // Alternatively, you can send an error response
+        res.status(401).send('This feature is not accessible for Guests');
+    }
+}
 
 mongoose.connect(url, {
     useNewUrlParser: true,
@@ -46,20 +63,6 @@ db.on('connected',()=>{
 db.on('error',(err)=>{
     console.error('Error Connecting to MongoDB');
 })
-function isAuthorized(req, res, next) {
-    // Check if the user is logged in (you might have a session variable for this)
-    res.locals.isLoggedIn = req.session.isLoggedIn || false;
-
-    if (res.locals.isLoggedIn) {
-        // The user is authorized, so continue to the next middleware or route handler
-        next();
-    } else {
-        // The user is not authorized, so you can redirect them to a login page or send an error message
-        // Alternatively, you can send an error response
-        res.status(401).send('This feature is not accessible for Guests');
-    }
-}
-
 
 
 // User Registration Route
@@ -188,7 +191,7 @@ const inventoryItemSchema = new mongoose.Schema({
 // Define a model for inventory items
 const InventoryItem = mongoose.model('inventory', inventoryItemSchema);
 
-app.get('/inventory', isAuthorized, (req, res) => {
+app.get('/inventory', isAuthenticated, async (req, res) => {
     res.sendFile(path.join(__dirname + '/public/inventory.html'));
 });
 
@@ -432,77 +435,90 @@ const Consumer = mongoose.model('consumer', ConsumerSchema);
 
 
             
-const Shopkeeper = new mongoose.Schema({
-    username: { type: String, required: true },
-    password: { type: String, required: true },
-    shop_name: { type: String, required: true },
-    shop_address: { type: String, required: true }
-});
-
-// Define a model for inventory items
-const Shop = mongoose.model('shop_register', Shopkeeper);
-
-
-// User Registration Route
-app.post('/shop_signup', async (req, res) => {
-    const { username, password, shop_name, phone_number, shop_address } = req.body;
-  
-    // Basic validation
-    if (!username || !password || !shop_name || !shop_address || !phone_number) {
-      return res.status(400).send('All fields are required');
-    }
-  
-    try {
-      // Hash the user's password before storing it
-      const saltRounds = 10; // You can adjust the number of salt rounds
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-  
-      // Create and save the consumer to the database with the hashed password
-      const newConsumer = new Consumer({
-        username,
-        password: hashedPassword,
-        shop_name,
-        phone_number,
-        shop_address
-      });
-  
-      await newConsumer.save();
-  
-      res.status(201).send('Shopkeeper Registration Successful');
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Error while Registering');
-    }
-  });
-
-
-// User Registration Route
-
-
-        // User Login Route
-        app.post('/shop_login', (req, res) => {
-            const username = req.body.username;
-            const password = req.body.password;
-
-            // Query the database to find the user
-            db.collection('shop_register').findOne({ username: username }, (err, user) => {
-                if (err) {
-                    res.status(500).send('Error during login.');
-                } else if (!user) {
-                    res.status(401).send('User not found.');
-                } else if (!bcrypt.compareSync(password, user.password)) {
-                    res.status(401).send('Incorrect password.');
-                } else {
-                    // Generate a JWT and send it as a response for user authentication
-                    const token = jwt.sign({ username: user.username }, secretKey, { expiresIn: '1h' });
-                    req.session.isLoggedIn = true;
-                    res.redirect('/');
+              const Shopkeeper = new mongoose.Schema({
+                username: { type: String, required: true },
+                password: { type: String, required: true },
+                shop_name: { type: String, required: true },
+                phone_number: { type: String, required: true }, // Added phone_number field
+                shop_address: { type: String, required: true },
+                latitude: { type: String, required: true }, // Added latitude field
+                longitude: { type: String, required: true }, // Added longitude field
+            });
+            
+            const Shop = mongoose.model('shop_register', Shopkeeper);
+            
+            // User Registration Route
+            app.post('/shop_signup', upload.none(), async (req, res) => {
+                const { username, password, shop_name, phone_number, shop_address, latitude, longitude } = req.body;
+                console.log(username);
+                console.log(password);
+                console.log(shop_name);
+                console.log(phone_number);
+                console.log(shop_address);
+                console.log(latitude);
+                console.log(longitude);
+                // Basic validation
+                if (!password || !shop_name || !shop_address || !phone_number || !latitude || !longitude) {
+                    return res.status(400).send('All fields are required');
+                }
+            
+                try {
+                    const saltRounds = 10;
+                    const hashedPassword = await bcrypt.hash(password, saltRounds);
+            
+                    const newShopkeeper = new Shop({
+                        username,
+                        password: hashedPassword,
+                        shop_name,
+                        phone_number,
+                        shop_address,
+                        latitude,
+                        longitude,
+                    });
+            
+                    await newShopkeeper.save();
+            
+                    res.status(201).send('Shopkeeper Registration Successful');
+                } catch (error) {
+                    console.error(error);
+                    res.status(500).send('Error while Registering');
                 }
             });
-        });
+            
 
 
+// User Login Route
+app.post('/shop_login', async (req, res) => {
+    const username = req.body.username;
+    const password = req.body.password;
 
+      console.log('Attempting login for username:', username);
+      
+    // Query the database to find the user
+    db.collection('shop_registers').findOne({ username: username }, (err, user) => {
+        console.log('User found in the database:', user);
+        if (err) {
+            res.status(500).send('Error during login.');
+        } else if (!user) {
+            res.status(401).send('User not found.');
+        } else if (!bcrypt.compareSync(password, user.password)) {
+            console.log('Input Password:', password);
+            console.log('Stored Password:', user.password);
+            res.status(401).send('Incorrect password.');
+        } else {
+            // Generate a JWT and send it as a response for user authentication
+            const token = jwt.sign({ username: user.username }, secretKey, { expiresIn: '1h' });
+
+            req.session = req.session || {};
+            // Set session data to mark the user as logged in
+            req.session.isLoggedIn = true;
+            
+            // Send the token as a response or redirect as needed
+            // For example, you can redirect to the home page
+            res.redirect('/');
+        }
+    });
+});
 
 
 
