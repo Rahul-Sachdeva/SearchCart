@@ -107,21 +107,33 @@ const Shop = mongoose.model('shop_register', Shopkeeper);
 
 // Define a schema for inventory items
 const inventoryItemSchema = new mongoose.Schema({
-    sport_name: { type: String, required: true },
-    item_name: { type: String, required: true },
-    quantity: { type: Number, required: true }
+    item: { type: String, required: true},
+    description: { type: String, required: true},
+    price: { type: Number, required: true},
+    quantity: { type: Number, required: true},
+    shop_name: { type: String, required: true},
+    phone_number: {type: String, required: true},
+    shop_address: {type: String, required: true},
+    latitude: { type: String, required: true},
+    longitude: {type: String, required: true}
 });
 
 // Define a model for inventory items
 const InventoryItem = mongoose.model('inventory', inventoryItemSchema);
 
-
 // How to Check Login-Status in HTML, CSS, JS
-app.get('/api/check-login-status', (req, res) => {
+app.get('/api/check-login-credentials', (req, res) => {
+    
     // Check if the user is logged in and retrieve relevant data
     const isLoggedIn = req.session.isLoggedIn;
+    const shopLoggedIn = req.session.shopLoggedIn;
+    const shopName = req.session.shopName;
+    const shopAddress = req.session.shopAddress;
+    const phoneNumber = req.session.phoneNumber;
+    const latitude = req.session.latitude;
+    const longitude = req.session.longitude;
     // Return the login status as JSON
-    res.json({ isLoggedIn });
+    res.json({ isLoggedIn, shopLoggedIn, shopName, shopAddress, phoneNumber, latitude, longitude });
 });
 
 // User Registration Route
@@ -230,6 +242,12 @@ app.post('/shop_login', async (req, res) => {
             // Set session data to mark the user as logged in
             req.session.isLoggedIn = true;
             req.session.shopLoggedIn = true;
+            req.session.shopAddress = user.shop_address;
+            req.session.shopName = user.shop_name;
+            req.session.phoneNumber = user.phone_number;
+            req.session.latitude = user.latitude;
+            req.session.longitude = user.longitude;
+
             // Send the token as a response or redirect as needed
             // For example, you can redirect to the home page
             res.redirect('/');
@@ -254,7 +272,19 @@ app.post('/api/logout', (req, res) => {
 // Get Request API For Inventory
 app.get('/api/inventory', async (req, res) => {
     try {
-        const results = await db.collection('inventory').find().sort({ sport_name: 1 }).toArray();
+        const results = await db.collection('inventory')
+        .aggregate([
+            { $match: { shop_name: req.session.shopName } },
+            {
+                $addFields: {
+                    priceAsNumber: { $toDouble: '$price' }
+                }
+            },
+            { $sort: { item: 1, priceAsNumber: 1 } },
+            { $project: { priceAsNumber: 0 } } // Exclude the temporary field from the output
+        ])
+        .toArray();
+
         res.json(results);
     } catch (err) {
         console.error('Error fetching sports:', err);
@@ -264,20 +294,25 @@ app.get('/api/inventory', async (req, res) => {
 
 // Post Request API for Inventory
 app.post('/api/items', async (req, res) => {
-    const { sportName, itemName, quantity } = req.body;
-
-    if (!sportName || !itemName || !quantity) {
+    const { item, description, quantity, price, shop_name, phone_number, shop_address, latitude, longitude } = req.body;
+    if (!item || !description || !quantity || !price || !shop_name || !phone_number || !shop_address || !latitude || !longitude) {
         res.status(400).json({ error: 'Invalid request' });
         return;
     }
     try {
         const result = await db.collection('inventory').insertOne({
-            sport_name: sportName,
-            item_name: itemName,
-            quantity: quantity
+            item: item,
+            description: description,
+            quantity: quantity,
+            price: price,
+            shop_name: shop_name,
+            phone_number: phone_number,
+            shop_address: shop_address,
+            latitude: latitude,
+            longitude: longitude
         });
 
-        res.json({ id: result.insertedId, sportName, itemName, quantity });
+        res.json({ id: result.insertedId, item, description, quantity, price, shop_name, phone_number, shop_address, latitude, longitude });
     } catch (err) {
         console.error('Error adding item:', err);
         res.status(500).json({ error: 'Internal server error' });
@@ -285,15 +320,15 @@ app.post('/api/items', async (req, res) => {
 });
 
 // Delete Request API for Inventory
-app.delete('/api/items/:itemName', async (req, res) => {
-    const { itemName } = req.params;
+app.delete('/api/items/:itemName/:shop/:describe', async (req, res) => {
+    const { itemName, shop, describe } = req.params;
 
-    if (!itemName) {
+    if (!itemName || !shop || !describe) {
         res.status(400).json({ error: 'Invalid request' });
         return;
     }
     try {
-        const result = await db.collection('inventory').deleteOne({ item_name: itemName });
+        const result = await db.collection('inventory').deleteOne({ item: itemName, shop_name: shop, description: describe });
 
         if (result.deletedCount === 0) {
             res.status(404).json({ error: 'Item not found' });
@@ -307,9 +342,9 @@ app.delete('/api/items/:itemName', async (req, res) => {
 });
 
 // Put Request API for Inventory
-app.put('/api/items/:itemName', async (req, res) => {
-    const { itemName } = req.params;
-    const { quantity } = req.body;
+app.put('/api/items/:itemName/:shop/:describe', async (req, res) => {
+    const { itemName, shop, describe } = req.params;
+    const { quantity, price } = req.body;
 
     if (!itemName || !quantity) {
         res.status(400).json({ error: 'Invalid request' });
@@ -317,7 +352,7 @@ app.put('/api/items/:itemName', async (req, res) => {
     }
 
     try {
-        const result = await db.collection('inventory').updateOne({ item_name: itemName }, { $set: { quantity: quantity } });
+        const result = await db.collection('inventory').updateOne({ item: itemName, shop_name: shop, description: describe }, { $set: { quantity: quantity, price: price } });
 
         if (result.modifiedCount === 0) {
             res.status(404).json({ error: 'Item not found' });
@@ -333,18 +368,20 @@ app.put('/api/items/:itemName', async (req, res) => {
 // app.get for Search Results
 app.get('/api/search', async (req, res) => {
     const searchTerm = req.query.searchTerm;
+    const latitude = req.query.latitude;
+    const longitude = req.query.longitude;
 
     try {
         const results = await db.collection('inventory').find({
             $or: [
-                { sport_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } },
-                { item_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } }
+                { item: { $regex: `.*${searchTerm}.*`, $options: 'i' } },
+                { description: { $regex: `.*${searchTerm}.*`, $options: 'i' } }
             ]
-        }).sort({ sport_name: 1 }).toArray();
+        }).sort({ item: 1 }).toArray();
         
         results.sort((a, b) => {
-            const containsSearchTermA = a.sport_name.toLowerCase().includes(searchTerm.toLowerCase());
-            const containsSearchTermB = b.sport_name.toLowerCase().includes(searchTerm.toLowerCase());
+            const containsSearchTermA = a.item.toLowerCase().includes(searchTerm.toLowerCase());
+            const containsSearchTermB = b.item.toLowerCase().includes(searchTerm.toLowerCase());
         
             // If sport_name contains the search term, it comes first in the sorted order
             return containsSearchTermB - containsSearchTermA;
@@ -360,27 +397,31 @@ app.get('/api/search', async (req, res) => {
 // Use app.post for rendering searchResults.ejs
 app.post('/search', async (req, res) => {
     const searchTerm = req.body.searchTerm;
+    const latitude = req.body.latitude;
+    const longitude = req.body.longitude;
     try {
         const results = await db.collection('inventory').find({
             $or: [
-                { sport_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } },
-                { item_name: { $regex: `.*${searchTerm}.*`, $options: 'i' } }
+                { item: { $regex: `.*${searchTerm}.*`, $options: 'i' } },
+                { description: { $regex: `.*${searchTerm}.*`, $options: 'i' } }
             ]
-        }).sort({ sport_name: 1 }).toArray();
+        }).sort({ item: 1 }).toArray();
+
+        results.sort((a, b) => {
+            const containsSearchTermA = a.item.toLowerCase().includes(searchTerm.toLowerCase());
+            const containsSearchTermB = b.item.toLowerCase().includes(searchTerm.toLowerCase());
+        
+            // If sport_name contains the search term, it comes first in the sorted order
+            return containsSearchTermB - containsSearchTermA;
+        });
 
         // Render the searchResults.ejs template with the results
-        res.render('searchResults', { results });
+        res.render('searchResults', { results, searchTerm, latitude, longitude });
     } catch (error) {
         console.error(error);
         res.status(500).send('Internal server error');
     }
 });
-
-            
-
-
-
-
 
 app.listen(port, () => {
     console.log(`Server is listening on port ${port}`);

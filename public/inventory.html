@@ -120,9 +120,15 @@ tr:nth-child(even) {
             <h2>Add Item</h2>
             <form id="addItemForm">
                 
-                <input type="text" id="sportNameForItem" placeholder="Item Name" required>
-                <input type="text" id="itemName" placeholder="Item Description" required>
-                <input type="number" id="itemQuantity" placeholder="Price" required>
+                <input type="text" id="itemName" placeholder="Item Name" required>
+                <input type="text" id="itemDescription" placeholder="Item Description" required>
+                <input type="number" id="itemQuantity" placeholder="Quantity" required>
+                <input type="number" id="itemPrice" placeholder="Price" required>
+                <input type="hidden" id="shop_address" name="shop_address">
+                <input type="hidden" id="shop_name" name="shop_name">
+                <input type="hidden" id="phone_number" name="phone_number">
+                <input type="hidden" id="latitude" name="latitude">
+                <input type="hidden" id="longitude" name="longitude">
                 <button type="submit">Add Item</button>
             </form>
         </div>
@@ -131,9 +137,10 @@ tr:nth-child(even) {
         <table id="inventoryTable">
             <thead>
                 <tr>
-                    <th>Sport</th>
                     <th>Item</th>
+                    <th>Description</th>
                     <th>Quantity</th>
+                    <th>Price</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -145,10 +152,39 @@ tr:nth-child(even) {
 
     <script>
         const addItemForm = document.getElementById('addItemForm');
-        const sportNameForItemInput = document.getElementById('sportNameForItem');
-        const itemNameInput = document.getElementById('itemName');
-        const itemQuantityInput = document.getElementById('itemQuantity');
         const inventoryTable = document.getElementById('inventoryTable');
+        const itemNameInput = document.getElementById('itemName');
+        const itemDescriptionInput = document.getElementById('itemDescription');
+        const itemQuantityInput = document.getElementById('itemQuantity');
+        const itemPriceInput = document.getElementById('itemPrice');
+        const itemShopName = document.getElementById('shop_name');
+        const itemPhoneNumber = document.getElementById('phone_number');
+        const itemShopAddress = document.getElementById('shop_address');
+        const itemLatitude = document.getElementById('latitude');
+        const itemLongitude = document.getElementById('longitude');
+        
+        fetch('/api/check-login-credentials')
+            .then(response => response.json())
+            .then(data => {
+                // Check the data to determine the user's login status
+                const isAuthenticated = data.isLoggedIn;
+                const isShopkeeper = data.shopLoggedIn;
+                const shopAddress = data.shopAddress;
+                const shopName = data.shopName;
+                const phoneNumber = data.phoneNumber;
+                const latitude = data.latitude;
+                const longitude = data.longitude;
+                
+                document.getElementById('phone_number').value = phoneNumber;
+                document.getElementById('shop_name').value = shopName;
+                document.getElementById('shop_address').value = shopAddress;
+                document.getElementById('latitude').value = latitude;
+                document.getElementById('longitude').value = longitude;
+            
+            })
+            .catch(error => {
+                console.error('Error checking login status:', error);
+        });
 
         // Function to fetch and display inventory data
         async function fetchAndDisplayInventory() {
@@ -164,12 +200,13 @@ tr:nth-child(even) {
                 // Inside the displayInventory function
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${item.sport_name}</td>
-                    <td>${item.item_name}</td>
+                    <td>${item.item}</td>
+                    <td>${item.description}</td>
                     <td>${item.quantity}</td>
+                    <td>${item.price}</td>
                     <td>
-                        <button class="delete-item" data-item-name="${item.item_name}">Delete</button>
-                        <button class="edit-item" data-item-name="${item.item_name}">Edit</button>
+                        <button class="delete-item" data-item-name="${item.item}" data-item-description="${item.description}">Delete</button>
+                        <button class="edit-item" data-item-name="${item.item}" data-item-description="${item.description}">Edit</button>
                     </td>
                 `;
                 inventoryTable.querySelector('tbody').appendChild(row);
@@ -179,24 +216,38 @@ tr:nth-child(even) {
         // Event listener for adding an item
         addItemForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const sportName = sportNameForItemInput.value;
             const newItemName = itemNameInput.value;
+            const newItemDescription = itemDescriptionInput.value;
             const newItemQuantity = itemQuantityInput.value;
-            if (sportName && newItemName && newItemQuantity) {
+            const newItemPrice = itemPriceInput.value;
+            const newItemShopName = itemShopName.value;
+            const newItemPhoneNumber = itemPhoneNumber.value;
+            const newItemShopAddress = itemShopAddress.value;
+            const newItemLatitude = itemLatitude.value;
+            const newItemLongitude = itemLongitude.value;
+            
+            if (newItemName && newItemDescription && newItemQuantity && newItemPrice && newItemShopName && newItemShopAddress && newItemPhoneNumber && newItemLatitude && newItemLongitude) {
                 await fetch('/api/items', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        sportName,
-                        itemName: newItemName,
-                        quantity: newItemQuantity
+                        item: newItemName,
+                        description: newItemDescription,
+                        quantity: newItemQuantity,
+                        price: newItemPrice,
+                        shop_name: newItemShopName,
+                        phone_number: newItemPhoneNumber,
+                        shop_address: newItemShopAddress,
+                        latitude: newItemLatitude,
+                        longitude: newItemLongitude
                     })
                 });
-                sportNameForItemInput.value = '';
                 itemNameInput.value = '';
+                itemDescriptionInput.value = '';
                 itemQuantityInput.value = '';
+                itemPriceInput.value = '';
                 fetchAndDisplayInventory();
             }
         });
@@ -205,8 +256,10 @@ tr:nth-child(even) {
 inventoryTable.addEventListener('click', async (e) => {
     if (e.target.classList.contains('delete-item')) {
         const itemName = e.target.getAttribute('data-item-name');
+        const itemDescription = e.target.getAttribute('data-item-description');
+        const newItemShopName = itemShopName.value;
         try {
-            const response = await fetch(`/api/items/${itemName}`, {
+            const response = await fetch(`/api/items/${itemName}/${newItemShopName}/${itemDescription}`, {
                 method: 'DELETE',
             });
             if (response.ok) {
@@ -223,14 +276,17 @@ inventoryTable.addEventListener('click', async (e) => {
 inventoryTable.addEventListener('click', (e) => {
     if (e.target.classList.contains('edit-item')) {
         const itemName = e.target.getAttribute('data-item-name');
+        const itemDescription = e.target.getAttribute('data-item-description');
+        const newItemShopName = itemShopName.value;
         const newQuantity = prompt('Enter the new quantity:');
-        if (newQuantity !== null) {
-            fetch(`/api/items/${itemName}`, {
+        const newPrice = prompt("Enter the new price:");
+        if (newQuantity !== null && newPrice !== null) {
+            fetch(`/api/items/${itemName}/${newItemShopName}/${itemDescription}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ quantity: newQuantity })
+                body: JSON.stringify({ quantity: newQuantity, price:newPrice })
             }).then((response) => {
                 if (response.ok) {
                     fetchAndDisplayInventory();

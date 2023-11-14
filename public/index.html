@@ -158,35 +158,41 @@ div button:hover{
           </nav>
           
     </header>
-      
-    <!-- Add this inside the <div class="search-container"> section -->
+<!--       
 <div class="search-bar">
     <form id="searchForm">
         <input type="text" id="searchInput" placeholder="Search for a Product...">
+        <input type="hidden" class="latitude" name="latitude">
+        <input type="hidden" class="longitude" name="longitude">
         <button type="button" onclick="performSearch()">Search</button>
     </form>
 </div>
 
-<!-- Add this above the closing </body> tag to display search results -->
 <div id="searchResultsContainer"></div>
 
-
-    <!-- Example: Modify your search form -->
     <form action="/api/search" method="get">
         <label for="searchTerm">Search Term:</label>
         <input type="text" id="searchTerm" name="searchTerm" required>
+        <input type="hidden" class="latitude" name="latitude">
+        <input type="hidden" class="longitude" name="longitude">
         <button type="submit">Search (GET)</button>
-    </form>
+    </form> 
+-->
 
-    <form action="/search" method="post">
+    <!-- Update your form in index.html -->
+<div class="search-bar">
+    <form id="post-search-form" action="/search" method="post">
         <label for="searchTermPost">Search Term:</label>
         <input type="text" id="searchTermPost" name="searchTerm" required>
-        <button type="submit">Search (POST)</button>
+        <!-- Updated the "for" attribute to "id" for latitude and longitude -->
+        <input type="hidden" id="latitude" name="latitude" required>
+        <input type="hidden" id="longitude" name="longitude" required>
+        <button type="submit" id="searchButton">Search</button>
     </form>
-
+</div>
 
     <div id="results"></div>
-    <div id="results-container"></div>e
+    <div id="results-container"></div>
     <div>
       <button id="show-location-button" type="button" class="location-button">Get My Location</button>
     </div>
@@ -207,9 +213,15 @@ div button:hover{
 
         // Function to add a marker and display coordinates on map click
         function addMarker(e) {
+            document.getElementById('latitude').value= e.latlng.lat;
+            document.getElementById('longitude').value= e.latlng.lng;
+            document.getElementById('searchButton').removeAttribute('disabled');
+            console.log(e.latlng.lat);
+            console.log(e.latlng.lng);
             if (marker) {
                 map.removeLayer(marker);
             }
+                    
             if (locationText) {
                 map.removeLayer(locationText);
             }
@@ -219,6 +231,7 @@ div button:hover{
                     className: 'map-label',
                     html: e.latlng.lat.toFixed(6) + ', ' + e.latlng.lng.toFixed(6),
                     iconSize: [150, 20]
+
                 })
             }).addTo(map);
         }
@@ -229,6 +242,13 @@ div button:hover{
                 navigator.geolocation.getCurrentPosition(function(position) {
                     var lat = position.coords.latitude;
                     var lng = position.coords.longitude;
+                    document.getElementsByClassName('latitude').value=lat;
+                    document.getElementsByClassName('longitude').value=lng;
+                    document.getElementById('latitude').value=lat;
+                    document.getElementById('longitude').value=lng;
+                    document.getElementById('searchButton').removeAttribute('disabled');
+                    console.log(lat);
+                    console.log(lng);
                     var userLocation = [lat, lng];
                     map.setView(userLocation, 12);
                     addMarker({ latlng: L.latLng(lat, lng) });
@@ -272,7 +292,7 @@ div button:hover{
         }
           
         // Call the function on page load to set the initial state
-        fetch('/api/check-login-status')
+        fetch('/api/check-login-credentials')
             .then(response => response.json())
             .then(data => {
                 // Check the data to determine the user's login status
@@ -282,13 +302,15 @@ div button:hover{
             .catch(error => {
                 console.error('Error checking login status:', error);
         });
-           
+/*           
 // Add this function to handle search on the server side
 async function performSearch() {
     const searchTerm = document.getElementById('searchInput').value;
+    const latitude = document.getElementsByClassName('latitude').value;
+    const longitude = document.getElementsByClassName('longitude').value;
 
     try {
-        const response = await fetch(`/api/search?searchTerm=${encodeURIComponent(searchTerm)}`);
+        const response = await fetch(`/api/search?searchTerm=${encodeURIComponent(searchTerm)}&latitude=${latitude}&longitude=${longitude}`);
         const results = await response.json();
 
         // Update the UI with the search results
@@ -299,8 +321,8 @@ async function performSearch() {
             results.forEach(result => {
                 const resultItem = document.createElement('div');
                 resultItem.innerHTML = `
-                    <h3>${result.sport_name}</h3>
-                    <p><strong>Item:</strong> ${result.item_name}</p>
+                    <h3>${result.item}</h3>
+                    <p><strong>Item:</strong> ${result.description}</p>
                     <p><strong>Quantity:</strong> ${result.quantity}</p>
                     <hr>
                 `;
@@ -322,8 +344,23 @@ async function performSearch() {
         event.preventDefault();
         performSearch();
     });
-    
-    
+*/
+    const postSearchForm = document.getElementById('post-search-form');
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const searchButton = document.getElementById('searchButton');
+
+    postSearchForm.addEventListener('submit', function (event) {
+        // Check if latitude and longitude are empty
+        if (!latitudeInput.value || !longitudeInput.value) {
+            // Display an alert or show a user-friendly message
+            alert('Please select a location on the map or click "Get My Location" before searching.');
+            // Prevent the form submission
+            event.preventDefault();
+        }
+    });
+
+
     </script>
 </body>
 </html>
