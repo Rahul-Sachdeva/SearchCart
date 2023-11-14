@@ -13,7 +13,8 @@ const session = require('express-session');
 const multer = require('multer');
 const upload = multer();
 
-const url = 'mongodb+srv://root:rahul@cluster0.01kig41.mongodb.net/details'; // Replace with your MongoDB connection URL
+const url = 'mongodb://127.0.0.1:27017/details';
+const url2 = 'mongodb+srv://root:rahul@cluster0.01kig41.mongodb.net/details'; // Replace with your MongoDB connection URL
 const secretKey = 'eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTY5ODMyMzAwNCwiaWF0IjoxNjk4MzIzMDA0fQ.oliXDweuyqg8qCkhqq6PUJkFE5lUKovEGQM0m137jmU'; // Replace with your own secret key
 
 app.use(bodyParser.json());
