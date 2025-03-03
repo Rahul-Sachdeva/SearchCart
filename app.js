@@ -9,7 +9,9 @@ const MongoClient = require('mongodb').MongoClient;
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
-const session = require('express-session');
+const MongoStore = require('connect-mongo');
+
+
 const multer = require('multer');
 const upload = multer();
 
@@ -29,8 +31,17 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(session({
     secret: secretKey,
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: url2, // Your MongoDB connection string
+        ttl: 14 * 24 * 60 * 60, // Session expiry in seconds (14 days)
+    })
 }));
+// app.use(session({
+//     secret: secretKey,
+//     resave: false,
+//     saveUninitialized: true
+// }));
 
 
 function isAuthenticated(req, res, next) {    
