@@ -80,6 +80,9 @@ db.on('error',(err)=>{
     console.error('Error Connecting to MongoDB');
 })
 
+app.get('/images', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'images'));
+});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
