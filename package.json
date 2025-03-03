@@ -4,7 +4,8 @@
   "description": "This is our hackathon project",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js",
+    "build": "echo 'No build step required'"
   },
   "repository": {
     "type": "git",
