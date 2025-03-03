@@ -9,11 +9,10 @@ const MongoClient = require('mongodb').MongoClient;
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
-const MongoStore = require('connect-mongo');
-
-
+const session = require('express-session');
 const multer = require('multer');
 const upload = multer();
+const MongoStore = require('connect-mongo');
 
 const url2 = process.env.MONGODB_URL; // Replace with your MongoDB connection URL
 const secretKey = process.env.SECRET_KEY;
@@ -31,12 +30,13 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(session({
     secret: secretKey,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: false, // Better security
     store: MongoStore.create({
-        mongoUrl: url2, // Your MongoDB connection string
+        mongoUrl: url2, // MongoDB connection string
         ttl: 14 * 24 * 60 * 60, // Session expiry in seconds (14 days)
     })
 }));
+
 // app.use(session({
 //     secret: secretKey,
 //     resave: false,
