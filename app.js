@@ -79,21 +79,21 @@ db.on('error',(err)=>{
 })
 
 
-app.get('/', (req,res)=>{
-    res.sendFile(path.join(__dirname+'/public/homepage.html'));
-})
-
-app.get('/inventory', isAuthenticated, isShopkeeper, async (req, res) => {
-    res.sendFile(path.join(__dirname + '/public/inventory.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
 
-app.get('/new_user_register', (req,res)=>{
-    res.sendFile(path.join(__dirname+'/public/new_user_registration.html'));
-})
+app.get('/inventory', isAuthenticated, isShopkeeper, async (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'inventory.html'));
+});
 
-app.get('/new_shop_register', (req,res)=>{
-    res.sendFile(path.join(__dirname + '/public/new_shop_register.html'));
-})
+app.get('/new_user_register', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'new_user_registration.html'));
+});
+
+app.get('/new_shop_register', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'new_shop_register.html'));
+});
 
 // Consumer Data Schema
 const ConsumerSchema = new mongoose.Schema({
