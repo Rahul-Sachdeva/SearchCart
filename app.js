@@ -80,7 +80,15 @@ db.on('error',(err)=>{
 
 
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'home.html'));
+});
+
+app.get('/about', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'About.html'));
 });
 
 app.get('/inventory', isAuthenticated, isShopkeeper, async (req, res) => {
