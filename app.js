@@ -1,8 +1,8 @@
 const express = require('express');
+require('dotenv').config()
 
 const app = express();
 const port = 3000;
-
 const path = require('path');
 const mongoose = require('mongoose');
 const MongoClient = require('mongodb').MongoClient;
@@ -13,9 +13,8 @@ const session = require('express-session');
 const multer = require('multer');
 const upload = multer();
 
-const url = 'mongodb://127.0.0.1:27017/details';
-const url2 = 'mongodb+srv://root:rahul@cluster0.01kig41.mongodb.net/details'; // Replace with your MongoDB connection URL
-const secretKey = 'eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTY5ODMyMzAwNCwiaWF0IjoxNjk4MzIzMDA0fQ.oliXDweuyqg8qCkhqq6PUJkFE5lUKovEGQM0m137jmU'; // Replace with your own secret key
+const url2 = process.env.MONGODB_URL; // Replace with your MongoDB connection URL
+const secretKey = process.env.SECRET_KEY;
 
 app.use(bodyParser.json());
 
@@ -53,7 +52,7 @@ function isShopkeeper(req, res, next) {
     }
 }
 
-mongoose.connect(url, {
+mongoose.connect(url2, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });
